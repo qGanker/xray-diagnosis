@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
 
-# ДОЛЖНО БЫТЬ ПЕРЕД ЛЮБОЙ Streamlit-командой
+# === ОБЯЗАТЕЛЬНО ПЕРВОЙ командой Streamlit ===
 st.set_page_config(page_title="Диагностика по рентгену", layout="centered")
 
 # === КОНСТАНТЫ ===
@@ -54,7 +54,7 @@ def generate_gradcam(model, img_array, class_index):
     cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
     return cam
 
-# === BAR CHART ===
+# === ГРАФИК ВЕРОЯТНОСТЕЙ ===
 def plot_probabilities(preds):
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ["red" if p >= THRESHOLD else "gray" for p in preds]
@@ -65,8 +65,7 @@ def plot_probabilities(preds):
     ax.set_title("Предсказания модели")
     st.pyplot(fig)
 
-# === UI ===
-st.set_page_config(page_title="Диагностика по рентгену", layout="centered")
+# === ИНТЕРФЕЙС ===
 st.title("🩻 Классификация заболеваний по рентгену")
 st.write("Загрузите изображение грудной клетки для анализа моделью.")
 
@@ -89,7 +88,7 @@ if uploaded_file:
     else:
         st.info("Серьёзные патологии не выявлены (все вероятности < 50%).")
 
-    # === GRAD-CAM ВИЗУАЛИЗАЦИЯ ===
+    # === Grad-CAM ВИЗУАЛИЗАЦИЯ ===
     top_class = int(np.argmax(preds))
     cam = generate_gradcam(model, img_array, top_class)
     heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
