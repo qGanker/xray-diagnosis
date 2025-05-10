@@ -6,7 +6,7 @@ from PIL import Image
 CLASS_NAMES = [
     'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Effusion',
     'Emphysema', 'Fibrosis', 'Hernia', 'Infiltration', 'Mass',
-    'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax', 'No Finding'
+    'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax'
 ]
 
 IMG_SIZE = (224, 224)
