@@ -12,42 +12,45 @@ CLASS_NAMES = [
 ]
 IMG_SIZE = (224, 224)
 MODEL_PATH = "xray_model.keras"
+THRESHOLD = 0.5
 
+# === Настройка страницы ===
 st.set_page_config(page_title="Классификация заболеваний по рентгену", layout="centered")
 st.title("🩻 Классификация заболеваний по рентгену")
 st.write("Загрузите изображение грудной клетки для анализа моделью.")
 
+# === Кэшируем модель ===
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 model = load_model()
 
-# Автоматический поиск последнего Conv2D слоя
-def find_last_conv_layer(model):
-    for layer in reversed(model.layers):
-        if isinstance(layer, tf.keras.layers.Conv2D):
-            return layer.name
-    return None
-
-# Предобработка
+# === Предобработка изображения ===
 def preprocess_image(image: Image.Image):
     image = image.convert("RGB")
     image = image.resize(IMG_SIZE)
     image_array = np.array(image) / 255.0
     return np.expand_dims(image_array, axis=0)
 
-# Grad-CAM
+# === Grad-CAM с автоопределением сверточного слоя ===
 def generate_gradcam(model, img_array, class_index):
-    conv_layer_name = find_last_conv_layer(model)
-    if conv_layer_name is None:
-        st.error("❗ Не найден свёрточный слой для Grad-CAM.")
-        return None
-
     try:
+        conv_layer = None
+        for layer in reversed(model.layers):
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                conv_layer = layer.name
+                break
+
+        if conv_layer is None:
+            st.error("❗ Не найден сверточный слой для Grad-CAM.")
+            return None
+
         grad_model = tf.keras.models.Model(
-            [model.inputs], [model.get_layer(conv_layer_name).output, model.output]
+            [model.inputs],
+            [model.get_layer(conv_layer).output, model.output]
         )
+
         with tf.GradientTape() as tape:
             conv_outputs, predictions = grad_model(img_array)
             loss = predictions[:, class_index]
@@ -68,10 +71,11 @@ def generate_gradcam(model, img_array, class_index):
         cam = cv2.resize(cam.numpy(), IMG_SIZE)
         cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
         return cam
-    except Exception as e:
-        st.error(f"⚠️ Ошибка Grad-CAM: {str(e)}")
+    except Exception:
+        st.warning("Не удалось построить Grad-CAM визуализацию для этого изображения.")
         return None
 
+# === Интерфейс загрузки и анализа ===
 uploaded_file = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
@@ -88,12 +92,14 @@ if uploaded_file is not None:
         for name, prob in zip(CLASS_NAMES, preds):
             st.write(f"**{name}**: {prob * 100:.2f}%")
 
+        # Grad-CAM по наиболее вероятному классу
         top_index = int(np.argmax(preds))
         cam = generate_gradcam(model, preprocessed, top_index)
-
         if cam is not None:
             heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
             orig = np.array(image.resize(IMG_SIZE))
+            if orig.max() <= 1.0:
+                orig = (orig * 255).astype(np.uint8)
             overlay = cv2.addWeighted(orig, 0.6, heatmap, 0.4, 0)
             st.subheader("🌡 Область внимания модели")
             st.image(overlay, caption=f"Grad-CAM для класса: {CLASS_NAMES[top_index]}", use_column_width=True)
