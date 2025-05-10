@@ -1,6 +1,7 @@
 import streamlit as st
 import tensorflow as tf
 import numpy as np
+import os
 from PIL import Image
 
 CLASS_NAMES = [
@@ -9,14 +10,16 @@ CLASS_NAMES = [
     'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax', 'No Finding'
 ]
 
-
 IMG_SIZE = (224, 224)
-MODEL_PATH = "xray_model.keras"
+MODEL_PATH = "../xray_model.keras"  # путь на уровень выше папки appy
 
 st.set_page_config(page_title="Классификация заболеваний по рентгену", layout="centered")
 
 @st.cache_resource
 def load_model():
+    if not os.path.exists(MODEL_PATH):
+        st.error(f"Модель не найдена по пути: {MODEL_PATH}")
+        st.stop()
     return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 def preprocess_image(image: Image.Image):
