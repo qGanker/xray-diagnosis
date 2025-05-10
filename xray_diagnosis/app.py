@@ -4,7 +4,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
-import io
 
 # === КОНСТАНТЫ ===
 CLASS_NAMES = [
@@ -52,7 +51,7 @@ def generate_gradcam(model, img_array, class_index):
     cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
     return cam
 
-# === ОТРИСОВКА BAR CHART ===
+# === BAR CHART ===
 def plot_probabilities(preds):
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ["red" if p >= THRESHOLD else "gray" for p in preds]
@@ -63,7 +62,7 @@ def plot_probabilities(preds):
     ax.set_title("Предсказания модели")
     st.pyplot(fig)
 
-# === STREAMLIT UI ===
+# === UI ===
 st.set_page_config(page_title="Диагностика по рентгену", layout="centered")
 st.title("🩻 Классификация заболеваний по рентгену")
 st.write("Загрузите изображение грудной клетки для анализа моделью.")
@@ -87,12 +86,12 @@ if uploaded_file:
     else:
         st.info("Серьёзные патологии не выявлены (все вероятности < 50%).")
 
-    # === ВИЗУАЛИЗАЦИЯ GRAD-CAM ДЛЯ ТОП-КЛАССА ===
+    # === GRAD-CAM ВИЗУАЛИЗАЦИЯ ===
     top_class = int(np.argmax(preds))
     cam = generate_gradcam(model, img_array, top_class)
     heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
     orig = np.array(image.resize(IMG_SIZE))
     overlay = cv2.addWeighted(orig, 0.6, heatmap, 0.4, 0)
 
-    st.markdown("### 🌡 Grad-CAM визуализация (самый вероятный класс)")
+    st.markdown("### 🌡 Grad-CAM визуализация")
     st.image(overlay, caption=f"Область внимания модели: {CLASS_NAMES[top_class]}", use_column_width=True)
