@@ -34,19 +34,30 @@ def preprocess_image(image: Image.Image):
     image_array = np.array(image) / 255.0
     return np.expand_dims(image_array, axis=0)
 
-# === Grad-CAM ===
+# === Grad-CAM с автоматическим выбором сверточного слоя ===
 def generate_gradcam(model, img_array, class_index):
     try:
+        # Найдём последний сверточный слой
+        last_conv_layer = None
+        for layer in reversed(model.layers):
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                last_conv_layer = layer.name
+                break
+
+        if last_conv_layer is None:
+            return None
+
         grad_model = tf.keras.models.Model(
-            [model.inputs], [model.get_layer(index=-3).output, model.output]
+            [model.inputs], [model.get_layer(last_conv_layer).output, model.output]
         )
+
         with tf.GradientTape() as tape:
             conv_outputs, predictions = grad_model(img_array)
             loss = predictions[:, class_index]
 
         grads = tape.gradient(loss, conv_outputs)
         if grads is None:
-            return None  # Без визуализации, если градиенты не получены
+            return None
 
         grads = grads[0]
         conv_outputs = conv_outputs[0]
@@ -60,7 +71,7 @@ def generate_gradcam(model, img_array, class_index):
         cam = cv2.resize(cam.numpy(), IMG_SIZE)
         cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
         return cam
-    except Exception as e:
+    except Exception:
         return None
 
 # === Ввод файла ===
