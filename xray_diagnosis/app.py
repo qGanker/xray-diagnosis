@@ -33,51 +33,48 @@ def preprocess_image(image: Image.Image):
     image_array = np.array(image) / 255.0
     return np.expand_dims(image_array, axis=0)
 
+# === Поиск последнего свёрточного слоя ===
+def find_last_conv_layer(model):
+    for layer in reversed(model.layers):
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            return layer.name
+    return None
+
 # === Grad-CAM ===
 def generate_gradcam(model, img_array, class_index):
     try:
-        conv_layer = None
-        for layer in reversed(model.layers):
-            if isinstance(layer, (tf.keras.layers.Conv2D,
-                                  tf.keras.layers.SeparableConv2D,
-                                  tf.keras.layers.DepthwiseConv2D)):
-                conv_layer = layer.name
-                break
-        if conv_layer is None:
-            st.warning("❗ Не найден сверточный слой для Grad-CAM.")
+        layer_name = find_last_conv_layer(model)
+        if layer_name is None:
+            st.error("❗ Не найден свёрточный слой для Grad-CAM.")
             return None
 
         grad_model = tf.keras.models.Model(
-            [model.inputs], [model.get_layer(conv_layer).output, model.output]
+            [model.inputs], [model.get_layer(layer_name).output, model.output]
         )
-
         with tf.GradientTape() as tape:
             conv_outputs, predictions = grad_model(img_array)
             loss = predictions[:, class_index]
 
         grads = tape.gradient(loss, conv_outputs)
         if grads is None:
-            st.warning("❗ Не удалось вычислить градиенты (grads = None).")
             return None
 
         grads = grads[0]
         conv_outputs = conv_outputs[0]
         weights = tf.reduce_mean(grads, axis=(0, 1))
-        cam = tf.zeros(conv_outputs.shape[:2], dtype=tf.float32)
+        cam = np.zeros(conv_outputs.shape[:2], dtype=np.float32)
 
-        for i in range(weights.shape[0]):
-            cam += weights[i] * conv_outputs[:, :, i]
+        for i, w in enumerate(weights):
+            cam += w * conv_outputs[:, :, i]
 
-        cam = tf.nn.relu(cam)
-        cam = tf.image.resize(cam[..., tf.newaxis], IMG_SIZE)
-        cam = tf.squeeze(cam)
-        cam = (cam - tf.reduce_min(cam)) / (tf.reduce_max(cam) - tf.reduce_min(cam) + 1e-8)
-        return cam.numpy()
-    except Exception as e:
-        st.warning(f"Grad-CAM ошибка: {e}")
+        cam = np.maximum(cam, 0)
+        cam = cv2.resize(cam.numpy(), IMG_SIZE)
+        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        return cam
+    except Exception:
         return None
 
-# === Загрузка изображения ===
+# === Интерфейс ===
 uploaded_file = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
@@ -94,10 +91,7 @@ if uploaded_file is not None:
         for name, prob in zip(CLASS_NAMES, preds):
             st.write(f"**{name}**: {prob * 100:.2f}%")
 
-        # === Grad-CAM по топ-классу с вероятностью выше порога ===
-        filtered = [(i, p) for i, p in enumerate(preds) if p > THRESHOLD]
-        top_index = filtered[0][0] if filtered else int(np.argmax(preds))
-
+        top_index = int(np.argmax(preds))
         cam = generate_gradcam(model, preprocessed, top_index)
         if cam is not None:
             heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
