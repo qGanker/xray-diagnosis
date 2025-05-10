@@ -3,43 +3,45 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# ====== Константы ======
-MODEL_PATH = "PythonProject/xray_model.keras"  # путь до модели
-IMG_SIZE = (224, 224)  # размер изображения (замени, если у тебя другой)
+# Классы заболеваний
 CLASS_NAMES = [
-    "Atelectasis", "Cardiomegaly", "Consolidation", "Edema",
-    "Effusion", "Emphysema", "Fibrosis", "Hernia",
-    "Infiltration", "Mass", "Nodule", "Pleural_Thickening",
-    "Pneumonia", "Pneumothorax"
-]  # замени на свои классы
+    'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Effusion',
+    'Emphysema', 'Fibrosis', 'Hernia', 'Infiltration', 'Mass',
+    'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax'
+]
 
-# ====== Загрузка модели ======
+IMG_SIZE = (224, 224)
+MODEL_PATH = "xray_model.keras"
+
+# Кешируем загрузку модели
 @st.cache_resource
 def load_model():
-    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-    return model
+    return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
-model = load_model()
+# Предобработка изображения
+def preprocess_image(image: Image.Image):
+    image = image.convert("RGB")
+    image = image.resize(IMG_SIZE)
+    image_array = np.array(image) / 255.0
+    return np.expand_dims(image_array, axis=0)
 
-# ====== Интерфейс ======
-st.title("🩻 Классификация заболеваний по рентгену")
+# Интерфейс
+st.set_page_config(page_title="Классификация заболеваний по рентгену", layout="centered")
+st.title("💀 Классификация заболеваний по рентгену")
 st.write("Загрузите изображение грудной клетки для анализа моделью.")
 
 uploaded_file = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(uploaded_file)
     st.image(image, caption="Загруженное изображение", use_column_width=True)
 
-    # ====== Предобработка ======
-    img_resized = image.resize(IMG_SIZE)
-    img_array = np.array(img_resized) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    st.write("🔍 Анализируем...")
 
-    # ====== Предсказание ======
-    predictions = model.predict(img_array)[0]
+    model = load_model()
+    preprocessed = preprocess_image(image)
+    prediction = model.predict(preprocessed)[0]
 
-    # ====== Результаты ======
     st.subheader("Результаты:")
-    for class_name, prob in zip(CLASS_NAMES, predictions):
-        st.write(f"**{class_name}**: {prob:.2%}")
+    for name, prob in zip(CLASS_NAMES, prediction):
+        st.write(f"**{name}**: {prob * 100:.2f}%")
