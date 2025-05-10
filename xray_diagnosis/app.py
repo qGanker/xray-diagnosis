@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
 
-# === ОБЯЗАТЕЛЬНО ПЕРВОЙ командой Streamlit ===
+# ДОЛЖНО БЫТЬ ПЕРВОЙ КОМАНДОЙ
 st.set_page_config(page_title="Диагностика по рентгену", layout="centered")
 
 # === КОНСТАНТЫ ===
@@ -18,14 +18,14 @@ MODEL_PATH = "xray_model.keras"
 IMG_SIZE = (224, 224)
 THRESHOLD = 0.5
 
-# === КЭШИРОВАННАЯ ЗАГРУЗКА МОДЕЛИ ===
+# === ЗАГРУЗКА МОДЕЛИ С КЭШЕМ ===
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 model = load_model()
 
-# === ОБРАБОТКА ИЗОБРАЖЕНИЯ ===
+# === ПРЕОБРАЗОВАНИЕ ИЗОБРАЖЕНИЯ ===
 def preprocess_image(image: Image.Image) -> np.ndarray:
     image = image.convert("RGB")
     image = image.resize(IMG_SIZE)
@@ -54,8 +54,12 @@ def generate_gradcam(model, img_array, class_index):
     cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
     return cam
 
-# === ГРАФИК ВЕРОЯТНОСТЕЙ ===
+# === BAR CHART ===
 def plot_probabilities(preds):
+    if len(preds) != len(CLASS_NAMES):
+        st.error(f"Ошибка: модель вернула {len(preds)} значений, а классов {len(CLASS_NAMES)}.")
+        return
+
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ["red" if p >= THRESHOLD else "gray" for p in preds]
     ax.barh(CLASS_NAMES, preds, color=colors)
@@ -76,7 +80,12 @@ if uploaded_file:
     st.image(image, caption="Исходное изображение", use_column_width=True)
     img_array = preprocess_image(image)
 
-    preds = model.predict(img_array)[0]
+    try:
+        preds = model.predict(img_array)[0]
+    except Exception as e:
+        st.error(f"Ошибка при предсказании: {e}")
+        st.stop()
+
     plot_probabilities(preds)
 
     high_preds = [(cls, float(prob)) for cls, prob in zip(CLASS_NAMES, preds) if prob >= THRESHOLD]
@@ -88,7 +97,7 @@ if uploaded_file:
     else:
         st.info("Серьёзные патологии не выявлены (все вероятности < 50%).")
 
-    # === Grad-CAM ВИЗУАЛИЗАЦИЯ ===
+    # === ВИЗУАЛИЗАЦИЯ ВНИМАНИЯ ===
     top_class = int(np.argmax(preds))
     cam = generate_gradcam(model, img_array, top_class)
     heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
