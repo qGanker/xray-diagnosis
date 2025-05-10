@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
 
+# ДОЛЖНО БЫТЬ ПЕРЕД ЛЮБОЙ Streamlit-командой
+st.set_page_config(page_title="Диагностика по рентгену", layout="centered")
+
 # === КОНСТАНТЫ ===
 CLASS_NAMES = [
     'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Effusion',
