@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 CLASS_NAMES = [
     'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Effusion',
     'Emphysema', 'Fibrosis', 'Hernia', 'Infiltration', 'Mass',
-    'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax'
+    'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax', 'No Finding'
 ]
 IMG_SIZE = (224, 224)
 MODEL_PATH = "xray_model.keras"
