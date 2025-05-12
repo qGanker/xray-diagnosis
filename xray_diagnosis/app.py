@@ -3,10 +3,17 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-CLASS_NAMES = [
+# Английские и русские названия диагнозов
+CLASS_NAMES_EN = [
     'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Effusion',
     'Emphysema', 'Fibrosis', 'Hernia', 'Infiltration', 'Mass',
     'Nodule', 'Pleural_Thickening', 'Pneumonia', 'Pneumothorax', 'No Finding'
+]
+
+CLASS_NAMES_RU = [
+    'Ателектаз', 'Кардиомегалия', 'Консолидация', 'Отёк', 'Экссудат',
+    'Эмфизема', 'Фиброз', 'Грыжа', 'Инфильтрат', 'Опухоль',
+    'Узел', 'Утолщение плевры', 'Пневмония', 'Пневмоторакс', 'Без патологии'
 ]
 
 IMG_SIZE = (224, 224)
@@ -24,7 +31,26 @@ def preprocess_image(image: Image.Image):
     image_array = np.array(image) / 255.0
     return np.expand_dims(image_array, axis=0)
 
-# CSS с учётом тёмной и светлой темы
+# 🌐 Переключатель языка
+lang = st.selectbox("🌐 Выберите язык / Select language", ["Русский", "English"])
+if lang == "Русский":
+    class_names = CLASS_NAMES_RU
+    upload_label = "📤 Загрузите изображение"
+    analyzing_text = "### ⏳ Анализируем изображение..."
+    result_title = "## 🧾 Результаты классификации"
+    image_caption = "🖼 Загруженное изображение"
+    page_title = "Классификация заболеваний по рентгену"
+    instructions = "Загрузите изображение грудной клетки, и модель покажет вероятность каждого заболевания."
+else:
+    class_names = CLASS_NAMES_EN
+    upload_label = "📤 Upload an image"
+    analyzing_text = "### ⏳ Analyzing the image..."
+    result_title = "## 🧾 Classification Results"
+    image_caption = "🖼 Uploaded Image"
+    page_title = "X-ray Disease Classification"
+    instructions = "Upload a chest X-ray image, and the model will show the probability of each disease."
+
+# CSS для прогрессбаров
 st.markdown("""
     <style>
         .label {
@@ -45,24 +71,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🩺 Классификация заболеваний по рентгену")
-st.markdown("Загрузите изображение грудной клетки, и модель покажет вероятность каждого заболевания.")
+st.title("🩺 " + page_title)
+st.markdown(instructions)
 
-uploaded_file = st.file_uploader("📤 Загрузите изображение", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader(upload_label, type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption="🖼 Загруженное изображение", use_column_width=True)
-    st.markdown("### ⏳ Анализируем изображение...")
+    st.image(image, caption=image_caption, use_column_width=True)
+    st.markdown(analyzing_text)
 
     model = load_model()
     preprocessed = preprocess_image(image)
     prediction = model.predict(preprocessed)[0]
 
-    st.markdown("## 🧾 Результаты классификации")
+    st.markdown(result_title)
 
-    for name, prob in zip(CLASS_NAMES, prediction):
-        percent = prob * 100
+    # Сортировка по вероятности убыванию
+    sorted_indices = np.argsort(prediction)[::-1]
+    for idx in sorted_indices:
+        name = class_names[idx]
+        percent = prediction[idx] * 100
         color = "#d9534f" if percent > 60 else "#f0ad4e" if percent > 30 else "#5bc0de"
         st.markdown(
             f"""
