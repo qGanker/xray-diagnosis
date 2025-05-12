@@ -131,13 +131,14 @@ if uploaded_file is not None:
         color = "#d9534f" if percent > 60 else "#f0ad4e" if percent > 30 else "#5bc0de"
         explanation = explanations.get(name, "🔍 Нет объяснения." if lang == "Русский" else "🔍 No explanation available.")
 
-        st.markdown(
-            f"""
-            <div class="label">{name}: <span style='color:{color}'>{percent:.2f}%</span></div>
-            <div class="bar-container">
-                <div class="bar" style="width:{percent}%; background-color:{color}'></div>
-            </div>
-            <div class="explanation">{explanation}</div>
-            """,
-            unsafe_allow_html=True
-        )
+       st.markdown(
+    f"""
+    <div class="label">{name}: <span style='color:{color}'>{percent:.2f}%</span></div>
+    <div class="bar-container">
+        <div class="bar" style="width:{percent}%; background-color:{color};"></div>
+    </div>
+    <div class="explanation">{explanation}</div>
+    """,
+    unsafe_allow_html=True
+)
+
